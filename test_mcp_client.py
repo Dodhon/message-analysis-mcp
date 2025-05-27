@@ -33,18 +33,6 @@ async def test_mcp_server():
                 for tool in tools.tools:
                     print(f"  • {tool.name}: {tool.description}")
                 
-                # List available resources
-                resources = await session.list_resources()
-                print(f"\n📚 Available Resources ({len(resources.resources)}):")
-                for resource in resources.resources:
-                    print(f"  • {resource.uri}: {resource.description}")
-                
-                # List available prompts
-                prompts = await session.list_prompts()
-                print(f"\n💬 Available Prompts ({len(prompts.prompts)}):")
-                for prompt in prompts.prompts:
-                    print(f"  • {prompt.name}: {prompt.description}")
-                
                 # Test basic statistics tool
                 print("\n🔍 Testing basic statistics tool...")
                 result = await session.call_tool("get_basic_statistics", arguments={})
@@ -57,11 +45,11 @@ async def test_mcp_server():
                 print("Word Frequency Result:")
                 print(result.content[0].text if result.content else "No content")
                 
-                # Test a resource
-                print("\n🔍 Testing basic stats resource...")
-                content = await session.read_resource("imessage://stats/basic")
-                print("Resource Content:")
-                print(content[0][:200] + "..." if len(content[0]) > 200 else content[0])
+                # Test conversation analysis tool
+                print("\n🔍 Testing conversation analysis tool...")
+                result = await session.call_tool("get_conversation_analysis", arguments={"top_n": 3})
+                print("Conversation Analysis Result:")
+                print(result.content[0].text if result.content else "No content")
                 
     except Exception as e:
         print(f"❌ Error: {e}")

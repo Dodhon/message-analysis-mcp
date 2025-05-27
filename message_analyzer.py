@@ -67,43 +67,162 @@ class MessageAnalyzer:
     def fetch_messages(self):
         """Fetch iMessage data using imessage_reader"""
         try:
-            # Validate system and database access
-            self._validate_system()
-            self._validate_database_access()
+            # Catch SystemExit specifically
+            import sys
+            original_exit = sys.exit
             
-            # Create FetchData instance with path to chat.db
-            fd = fetch_data.FetchData(self.db_path)
+            def safe_exit(code=0):
+                raise RuntimeError(f"Library tried to exit with code: {code}")
             
-            # Get messages using the correct method
-            raw_messages = fd.get_messages()
+            sys.exit = safe_exit
             
-            if not raw_messages:
-                print("⚠️  No messages found in database")
-                return True  # Not an error, just empty
-            
-            # Convert tuples to dictionaries for easier processing
-            self.messages = []
-            for msg in raw_messages:
-                # Handle different tuple formats gracefully
-                message_dict = {
-                    'handle_id': msg[0] if len(msg) > 0 else 'Unknown',
-                    'text': msg[1] if len(msg) > 1 else '',
-                    'date': msg[2] if len(msg) > 2 else None,
-                    'service': msg[3] if len(msg) > 3 else 'Unknown',
-                    'account': msg[4] if len(msg) > 4 else 'Unknown',
-                    'is_from_me': msg[5] if len(msg) > 5 else False,
-                }
+            try:
+                # Validate system and database access
+                self._validate_system()
+                self._validate_database_access()
                 
-                # Only add messages with actual content
-                if message_dict['text'] or message_dict['handle_id'] != 'Unknown':
-                    self.messages.append(message_dict)
-            
-            print(f"✅ Loaded {len(self.messages)} messages from {len(set(msg.get('handle_id', 'Unknown') for msg in self.messages))} contacts")
-            return True
-            
+                # Create FetchData instance with path to chat.db
+                fd = fetch_data.FetchData(self.db_path)
+                
+                # Get messages using the correct method
+                try:
+                    raw_messages = fd.get_messages()
+                except Exception as e:
+                    print(f"Error fetching messages: {e}")
+                    # Don't return False here - let it fall through to exception handling
+                    raise e
+                
+                if not raw_messages:
+                    print("⚠️  No messages found in database")
+                    return True  # Not an error, just empty
+                
+                # Convert tuples to dictionaries for easier processing
+                self.messages = []
+                for msg in raw_messages:
+                    # Handle different tuple formats gracefully
+                    message_dict = {
+                        'handle_id': msg[0] if len(msg) > 0 else 'Unknown',
+                        'text': msg[1] if len(msg) > 1 else '',
+                        'date': msg[2] if len(msg) > 2 else None,
+                        'service': msg[3] if len(msg) > 3 else 'Unknown',
+                        'account': msg[4] if len(msg) > 4 else 'Unknown',
+                        'is_from_me': msg[5] if len(msg) > 5 else False,
+                    }
+                    
+                    # Only add messages with actual content
+                    if message_dict['text'] or message_dict['handle_id'] != 'Unknown':
+                        self.messages.append(message_dict)
+                
+                print(f"✅ Loaded {len(self.messages)} messages from {len(set(msg.get('handle_id', 'Unknown') for msg in self.messages))} contacts")
+                return True
+            finally:
+                sys.exit = original_exit
+        except (RuntimeError, SystemExit) as e:
+            print(f"⚠️ Database reading failed: {e}")
+            print("Trying alternative approach...")
+            return self._fallback_message_reading()
+        except UnicodeDecodeError as e:
+            print(f"⚠️ UTF-8 decoding error: {e}")
+            print("Trying alternative approach...")
+            return self._fallback_message_reading()
         except Exception as e:
-            print(f"❌ Error loading messages: {e}")
+            print(f"⚠️ Unexpected error: {e}")
+            print("Trying alternative approach...")
+            return self._fallback_message_reading()
+    
+    def _fallback_message_reading(self):
+        """Fallback method using direct SQLite access with better error handling"""
+        try:
+            import sqlite3
+            
+            print("🔄 Attempting direct SQLite access...")
+            
+            # Connect to database with error handling
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Try a simple query first to test access
+            cursor.execute("SELECT COUNT(*) FROM message")
+            total_count = cursor.fetchone()[0]
+            print(f"📊 Found {total_count} total messages in database")
+            
+            if total_count == 0:
+                print("⚠️  Database is empty")
+                conn.close()
+                return True
+            
+            # Get messages with simplified query - include ALL message types
+            query = """
+            SELECT 
+                h.id,
+                m.text,
+                m.date,
+                m.service,
+                m.account,
+                m.is_from_me
+            FROM message m
+            LEFT JOIN handle h ON m.handle_id = h.ROWID
+            ORDER BY m.date DESC
+            LIMIT 10000
+            """
+            
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            
+            self.messages = []
+            for row in rows:
+                try:
+                    # Handle potential encoding issues in text
+                    text = row[1] if row[1] else ''
+                    if isinstance(text, bytes):
+                        # Try different encodings
+                        try:
+                            text = text.decode('utf-8')
+                        except UnicodeDecodeError:
+                            try:
+                                text = text.decode('latin-1')
+                            except UnicodeDecodeError:
+                                text = text.decode('utf-8', errors='replace')
+                    
+                    message_dict = {
+                        'handle_id': row[0] or 'Unknown',
+                        'text': text or '[attachment/reaction]',
+                        'date': row[2],
+                        'service': row[3] or 'Unknown',
+                        'account': row[4] or 'Unknown',
+                        'is_from_me': bool(row[5]),
+                    }
+                    
+                    # Include ALL messages (text, attachments, reactions, etc.)
+                    if message_dict['handle_id'] != 'Unknown':
+                        self.messages.append(message_dict)
+                        
+                except Exception as e:
+                    # Skip problematic messages but continue
+                    print(f"⚠️  Skipping message due to error: {e}")
+                    continue
+            
+            conn.close()
+            
+            if self.messages:
+                unique_contacts = len(set(msg.get('handle_id', 'Unknown') for msg in self.messages))
+                print(f"✅ Loaded {len(self.messages)} messages from {unique_contacts} contacts (fallback method)")
+                return True
+            else:
+                print("⚠️  No valid messages found")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Fallback method also failed: {e}")
             return False
+
+    def fetch_messages_with_recovery(self):
+        try:
+            return self._fetch_all_messages()
+        except Exception as e:
+            print(f"Full fetch failed: {e}")
+            print("Attempting partial recovery...")
+            return self._fetch_recent_messages_only()
     
     def basic_stats(self):
         """Generate basic statistics about messages"""

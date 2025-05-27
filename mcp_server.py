@@ -19,8 +19,12 @@ def get_analyzer():
     global analyzer
     if analyzer is None:
         analyzer = MessageAnalyzer()
-        if not analyzer.fetch_messages():
-            raise Exception("Failed to fetch messages. Check Full Disk Access permissions.")
+        success = analyzer.fetch_messages()
+        if not success:
+            # The fetch_messages method already includes fallback logic
+            # If it still fails, check if we have any messages loaded
+            if not analyzer.messages:
+                raise Exception("Failed to fetch messages. Check Full Disk Access permissions.")
     return analyzer
 
 @mcp.tool()
