@@ -8,6 +8,17 @@ import asyncio
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+# Tool arguments mapping
+TOOL_ARGUMENTS = {
+    "get_basic_statistics": {},
+    "get_word_frequency": {"top_n": 10},
+    "get_conversation_analysis": {"top_n": 5},
+    "list_contacts": {"limit": 10},
+    "search_messages": {"query": "hello", "limit": 5},
+    "get_contact_statistics": {"contact": "+1 (630) 881-5887"},
+    "get_conversation": {"contact": "+1 (630) 881-5887", "limit": 10}
+}
+
 async def test_mcp_server():
     """Test the iMessage Analysis MCP server"""
     
@@ -31,25 +42,17 @@ async def test_mcp_server():
                 tools = await session.list_tools()
                 print(f"\n📋 Available Tools ({len(tools.tools)}):")
                 for tool in tools.tools:
-                    print(f"  • {tool.name}: {tool.description}")
+                    print(f"  - {tool.name}")
                 
-                # Test basic statistics tool
-                print("\n🔍 Testing basic statistics tool...")
-                result = await session.call_tool("get_basic_statistics", arguments={})
-                print("Basic Statistics Result:")
-                print(result.content[0].text if result.content else "No content")
                 
-                # Test word frequency tool
-                print("\n🔍 Testing word frequency tool...")
-                result = await session.call_tool("get_word_frequency", arguments={"top_n": 5})
-                print("Word Frequency Result:")
-                print(result.content[0].text if result.content else "No content")
+                while True:
+                    tool_name = input("Please enter the exact name of the tool you want to test: ")
+                    result = await session.call_tool(tool_name, arguments={})
+                    print(result.content[0].text if result.content else "No content")
+                    if input("Do you want to test another tool? (y/n): ").lower() == "n":
+                        break
                 
-                # Test conversation analysis tool
-                print("\n🔍 Testing conversation analysis tool...")
-                result = await session.call_tool("get_conversation_analysis", arguments={"top_n": 3})
-                print("Conversation Analysis Result:")
-                print(result.content[0].text if result.content else "No content")
+                # Test all tools a
                 
     except Exception as e:
         print(f"❌ Error: {e}")
