@@ -11,10 +11,10 @@ def print_stats(stats):
     print("="*50)
     
     basic = stats.get('basic_stats', {})
-    print(f"📊 Total Messages: {basic.get('total_messages', 0)}")
-    print(f"👥 Unique Senders: {basic.get('unique_senders', 0)}")
-    print(f"📝 Avg Message Length: {basic.get('avg_message_length', 0):.1f} characters")
-    print(f"📏 Longest Message: {basic.get('longest_message', 0)} characters")
+    print(f"Total Messages: {basic.get('total_messages', 0)}")
+    print(f"Unique Senders: {basic.get('unique_senders', 0)}")
+    print(f"Avg Message Length: {basic.get('avg_message_length', 0):.1f} characters")
+    print(f"Longest Message: {basic.get('longest_message', 0)} characters")
     
     print("\n🏆 Top Senders:")
     top_senders = basic.get('top_senders', {})
@@ -30,11 +30,11 @@ def print_stats(stats):
     conv_stats = stats.get('conversation_stats', {})
     if conv_stats and 'top_conversations' in conv_stats:
         print("\n" + "="*50)
-        print("💬 Conversation Analysis")
+        print("Conversation Analysis")
         print("="*50)
-        print(f"📈 Total Conversations: {conv_stats.get('total_conversations', 0)}")
+        print(f"Total Conversations: {conv_stats.get('total_conversations', 0)}")
         
-        print("\n🗣️ Top Conversations (Who talks more?):")
+        print("\nTop Conversations (Who talks more?):")
         for conv in conv_stats['top_conversations']:
             contact = conv['contact']
             total = conv['total_messages']
@@ -43,19 +43,19 @@ def print_stats(stats):
             who_talks = conv['who_talks_more']
             avg_len = conv['avg_message_length']
             
-            print(f"\n  📞 {contact}")
+            print(f"\n  {contact}")
             print(f"     Total: {total} messages")
             print(f"     Me: {my_pct}% ({conv['my_messages']} msgs) | Them: {their_pct}% ({conv['their_messages']} msgs)")
             print(f"     Who talks more: {who_talks} | Avg length: {avg_len:.1f} chars")
 
 def main():
     """Main function to run iMessage analysis"""
-    print("🚀 Starting iMessage Analysis...")
+    print("Starting iMessage Analysis...")
     
     # Initialize analyzer and fetch messages
     analyzer = MessageAnalyzer()
     if not analyzer.fetch_messages():
-        print("❌ Failed to fetch messages. Make sure you have proper permissions.")
+        print("Failed to fetch messages. Make sure you have proper permissions.")
         print("   Go to: System Settings → Privacy & Security → Full Disk Access")
         print("   Add Terminal (or Python) to the allowed applications.")
         sys.exit(1)
@@ -72,8 +72,8 @@ def main():
     # Export results
     analyzer.export_stats()
     
-    print("\n✨ Analysis complete!")
-    print("📊 Results have been exported to message_stats.json")
+    print("\nAnalysis complete!")
+    print("Results have been exported to message_stats.json")
 
 if __name__ == "__main__":
     main() 
